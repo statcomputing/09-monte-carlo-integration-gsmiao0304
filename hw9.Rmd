@@ -75,7 +75,7 @@ Clearly, after improving g(x), the variance of the estimates significantly reduc
 ### (1)
 $$\Delta S/S = r \Delta t + \sigma \Delta W$$
 $$\Delta W \sim N(0, \Delta t)$$
-$$S_{t+\Delta t} = S_t \cdot exp[(r - \sigma^2/2) \Delta t + \sigma \sqrt{\Delta t} Z_{t+1}]$$
+$$S_{t+\Delta t} = S_t \cdot exp[(r - \sigma^2/2) \Delta t + \sigma \sqrt{\Delta t} Z]$$
 ```{r message=FALSE, warning=FALSE}
 gbm <- function(s0, n, N, Time, r, sigma) {
   t <- c(0:n) * Time / n
