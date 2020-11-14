@@ -1,0 +1,231 @@
+---
+title: "STAT-5361 Homework#9"
+author: "Simiao Gao"
+output: pdf_document
+---
+
+## Exercises 7.5.1
+
+### (1)
+$$h(x)=x^2$$
+$$f(x) = \frac{1}{5\sqrt{2\pi}}x^2e^{-(x-2)^2/2}$$
+$$g(x) = \frac{1}{\sqrt{2\pi}}e^{-x^2/2}$$
+$$w(x)=f(x)/g(x)=\frac{1}{5} x^2 e^{2x-2}$$
+```{r message=FALSE, warning=FALSE}
+h <- function(x) {
+  return(x^2)
+}
+w <- function(x) {
+  return(1/5 * x^2 * exp(2*x - 2))
+}
+hw <- function(x) {
+  return(h(x) * w(x))
+}
+est <- function(n) {
+  rs <- rnorm(n)
+  hwest <- mean(sapply(rs, hw))
+  return(hwest)
+}
+mcest <- function(nrep, n) {
+  s <- replicate(nrep, est(n))
+  return(list(mean = mean(s), variance = var(s)))
+}
+set.seed(2020)
+mcest(500, 1000) 
+mcest(500, 10000)
+mcest(500, 50000)
+```
+
+### (2)
+
+$$h(x)f(x)=\frac{1}{5\sqrt{2\pi}}x^4e^{-(x-2)^2/2}$$
+To reduce the variance of $\hat{\mu_g}$, g(x) should be in proportion to h(x)f(x) as much as possible. Hence, we can let g(x) be the density of N(2,1).
+
+### (3)
+
+```{r message=FALSE, warning=FALSE}
+w1 <- function(x) {
+  return(1/5 * x^2)
+}
+hw1 <- function(x) {
+  return(h(x) * w1(x))
+}
+est1 <- function(n) {
+  rs <- rnorm(n, 2, 1)
+  hwest <- mean(sapply(rs, hw1))
+  return(hwest)
+}
+mcest1 <- function(nrep, n) {
+  s <- replicate(nrep, est1(n))
+  return(list(mean = mean(s), variance = var(s)))
+}
+set.seed(2020)
+mcest1(500, 1000) 
+mcest1(500, 10000)
+mcest1(500, 50000)
+```
+
+### (4)
+
+Clearly, after improving g(x), the variance of the estimates significantly reduced.
+
+
+## Exercises 7.5.2
+
+### (1)
+$$\Delta S/S = r \Delta t + \sigma \Delta W$$
+$$\Delta W \sim N(0, \Delta t)$$
+$$S_{t+\Delta t} = S_t \cdot exp[(r - \sigma^2/2) \Delta t + \sigma \sqrt{\Delta t} Z_{t+1}]$$
+```{r message=FALSE, warning=FALSE}
+gbm <- function(s0, n, N, Time, r, sigma) {
+  t <- c(0:n) * Time / n
+  d <- diff(t)
+  s <- matrix(rep(NA, N * length(d)), N, length(d))
+  for (i in 1:N) {
+    s0_ <- s0
+    for (j in 1:n) {
+      s1 <- s0_ * exp((r - 0.5 * sigma^2) * d[j] + sigma * sqrt(d[j]) * rnorm(1))
+      s[i,j] <- s1
+      s0_ <- s1
+    }
+  }
+  return(s)
+}
+
+option_sim <- function(s0, n, N, r, sigma, Time, K) {
+  s <- gbm(s0, n, N, Time, r, sigma)
+  SA <- rowSums(s) / n
+  SG <- apply(s, 1, prod) ^ (1/n)
+  PA <- exp(-r * Time) * pmax(SA - K, 0)
+  PE <- exp(-r * Time) * pmax(s[,12] - K, 0)
+  PG <- exp(-r * Time) * pmax(SG - K, 0)
+  St <- s[,12]
+  option_out <- data.frame("St" = St, "PA" = PA, "PE" = PE, "PG" = PG)
+  return(option_out)
+}
+```
+
+### (2)
+
+```{r message=FALSE, warning=FALSE}
+corr <- function(sim1, sim2, sim3, sim4, sim5, p, param) {
+  StPA <- c(cor(sim1$St, sim1$PA), cor(sim2$St, sim2$PA), cor(sim3$St, sim3$PA),
+            cor(sim4$St, sim4$PA), cor(sim5$St, sim5$PA))
+  PAPE <- c(cor(sim1$PE, sim1$PA), cor(sim2$PE, sim2$PA), cor(sim3$PE, sim3$PA),
+            cor(sim4$PE, sim4$PA), cor(sim5$PE, sim5$PA))
+  PAPG <- c(cor(sim1$PG, sim1$PA), cor(sim2$PG, sim2$PA), cor(sim3$PG, sim3$PA),
+            cor(sim4$PG, sim4$PA), cor(sim5$PG, sim5$PA))
+  out <- data.frame(param, StPA, PAPE, PAPG)
+  colnames(out) <- c(p, "cor(S(T), PA)", "cor(PA, PE)", "cor(PA, PG)")
+  return(out)
+}
+set.seed(2020)
+s0 <- 1; r <- 0.05; n <- 12; N <- 5000
+sigma <- 0.5; Time <- 1; K <- c(1.1, 1.2, 1.3, 1.4, 1.5)
+sim1 <- option_sim(s0, n, N, r, sigma, Time, K[1])
+sim2 <- option_sim(s0, n, N, r, sigma, Time, K[2])
+sim3 <- option_sim(s0, n, N, r, sigma, Time, K[3])
+sim4 <- option_sim(s0, n, N, r, sigma, Time, K[4])
+sim5 <- option_sim(s0, n, N, r, sigma, Time, K[5])
+corr(sim1, sim2, sim3, sim4, sim5, "K", K)
+```
+
+As K increases, correlation tends to decrease. 
+
+### (3)
+
+```{r message=FALSE, warning=FALSE}
+set.seed(2020)
+sigma <- c(0.2, 0.3, 0.4, 0.5, 0.6); Time <- 1; K <- 1.5
+sim1 <- option_sim(s0, n, N, r, sigma[1], Time, K)
+sim2 <- option_sim(s0, n, N, r, sigma[2], Time, K)
+sim3 <- option_sim(s0, n, N, r, sigma[3], Time, K)
+sim4 <- option_sim(s0, n, N, r, sigma[4], Time, K)
+sim5 <- option_sim(s0, n, N, r, sigma[5], Time, K)
+corr(sim1, sim2, sim3, sim4, sim5, "sigma", sigma)[c(1:4),]
+```
+
+As $\sigma$ increases, correlation tends to increase. 
+
+### (4)
+
+```{r message=FALSE, warning=FALSE}
+set.seed(2020)
+sigma <- 0.5; Time <- c(0.4, 0.7, 1, 1.3, 1.6); K <- 1.5
+sim1 <- option_sim(s0, n, N, r, sigma, Time[1], K)
+sim2 <- option_sim(s0, n, N, r, sigma, Time[2], K)
+sim3 <- option_sim(s0, n, N, r, sigma, Time[3], K)
+sim4 <- option_sim(s0, n, N, r, sigma, Time[4], K)
+sim5 <- option_sim(s0, n, N, r, sigma, Time[5], K)
+corr(sim1, sim2, sim3, sim4, sim5, "T", Time)
+```
+
+As T increases, cor(S(T), PA) and cor(PE, PA) tends to increase.
+
+### (5)
+
+```{r message=FALSE, warning=FALSE}
+rBM <- function(n, tgrid, sigma) {
+    tt <- c(0, tgrid)
+    dt <- diff(tt)
+    nt <- length(tgrid)
+    dw <- matrix(rnorm(n * nt, sd = sigma * sqrt(dt)), n, nt, byrow = TRUE)
+    t(apply(dw, 1, cumsum))
+}
+callValLognorm <- function(S0, K, mu, sigma) {
+    d <- (log(S0 / K) + mu + sigma^2) / sigma
+    S0 * exp(mu + 0.5 * sigma^2) * pnorm(d) - K * pnorm(d - sigma)
+}
+optValueAppr <- function(n, r, sigma, S0, K, tgrid) {
+    wt <- rBM(n, tgrid, sigma)
+    ## payoff of call option on arithmetic average
+    nt <- length(tgrid)
+    TT <- tgrid[nt]
+    St <- S0 * exp((r - sigma^2 / 2) * matrix(tgrid, n, nt, byrow = TRUE) + wt)
+    pAri <- pmax(rowMeans(St) - K, 0)
+    vAri <- mean(pAri) 
+    ## underlying asset price
+    ST <- St[, nt]
+    vAs <- vAri - cov(ST, pAri) / var(ST) * (mean(ST) - exp(r * TT) * S0)
+    ## value of standard option
+    pStd <- pmax(ST - K, 0)
+    pStdTrue <- callValLognorm(S0, K, (r - 0.5 * sigma^2) * TT,
+                               sigma * sqrt(TT))
+    vStd <-  vAri - cov(pStd, pAri) / var(pStd) * (mean(pStd) - pStdTrue)
+    ## payoff of call option on geometric average
+    pGeo <- pmax(exp(rowMeans(log(St))) - K, 0)
+    tbar <- mean(tgrid)
+    sBar2 <- sigma^2 / nt^2 / tbar * sum( (2 * seq(nt) - 1) * rev(tgrid) )
+    pGeoTrue <- callValLognorm(S0, K, (r - 0.5 * sigma^2) * tbar,
+                               sqrt(sBar2 * tbar))
+    vGeo <- vAri - cov(pGeo, pAri) / var(pGeo) * (mean(pGeo) - pGeoTrue)
+    ## sim <- data.frame(pAri, ST, pStd, pGeo)
+    ## result
+    c(vGeo, vAri) * exp(-r * TT)
+}
+set.seed(2020)
+sim <- replicate(5000, optValueAppr(n = 500, r = 0.05, sigma = 0.4, S0 = 1, K = 1.5,
+                                    tgrid = seq(0,1,length = 13)[-1]))
+cv <- data.frame(rbind(apply(sim, 1, mean),apply(sim, 1, sd)))
+rownames(cv) <- c('Mean','SD')
+colnames(cv) <- c("with Control", "no Control")
+cv
+```
+
+The standard error using $P_G$ as control variable is strictly smaller.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
